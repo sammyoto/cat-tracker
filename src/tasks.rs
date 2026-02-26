@@ -1,23 +1,47 @@
-use bincode::{Decode, Encode};
+use bincode::{Decode, Encode, de::Decoder, enc::Encoder, error::DecodeError, error::EncodeError};
+use std::task::Context;
 use cu29::prelude::*;
 use serde::{Deserialize, Serialize};
+use cu29::payload::CuArray;
 
-// Define a message type
-#[derive(Default, Debug, Clone, Encode, Decode, Serialize, Deserialize, Reflect)]
-pub struct MyPayload {
-    value: i32,
+// 320 * 320 * 3 = 307200 bytes for RGB24
+pub const FRAME_SIZE: usize = 320 * 320 * 3;
+
+#[derive(Default, Debug, Clone, Encode, Serialize, Deserialize, Reflect)]
+pub struct CameraFrame {
+    pub data: CuArray<u8, FRAME_SIZE>,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl bincode::Decode<()> for CameraFrame {
+    fn decode<D: bincode::de::Decoder<Context = ()>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        Ok(Self {
+            data: bincode::Decode::decode(decoder)?,
+            width: bincode::Decode::decode(decoder)?,
+            height: bincode::Decode::decode(decoder)?,
+        })
+    }
+}
+
+#[derive(Default, Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+pub struct CatDetection {
+    pub found: bool,
+    pub confidence: f32,
+    pub center_x: u32,
+    pub center_y: u32,
 }
 
 // Defines a source (ie. driver)
 #[derive(Default, Reflect)]
-pub struct MySource {}
+pub struct CameraSource {}
 
 // Needs to be fully implemented if you want to have a stateful task.
-impl Freezable for MySource {}
+impl Freezable for CameraSource {}
 
-impl CuSrcTask for MySource {
+impl CuSrcTask for CameraSource {
     type Resources<'r> = ();
-    type Output<'m> = output_msg!(MyPayload);
+    type Output<'m> = output_msg!(CameraFrame);
 
     fn new(_config: Option<&ComponentConfig>, _resources: Self::Resources<'_>) -> CuResult<Self>
     where
@@ -26,61 +50,54 @@ impl CuSrcTask for MySource {
         Ok(Self {})
     }
 
-    // don't forget the other lifecycle methods if you need them: start, stop, preprocess, postprocess
-
     fn process(&mut self, _clock: &RobotClock, output: &mut Self::Output<'_>) -> CuResult<()> {
-        // Generated a 42 message.
-        output.set_payload(MyPayload { value: 42 });
+        let mut frame = CameraFrame {
+        data: CuArray::new(),
+        width: 320,
+        height: 320,
+        };
+        // fill with placeholder data — real camera bytes go here later
+        frame.data.fill_from_iter(std::iter::repeat(0u8).take(FRAME_SIZE));
+        output.set_payload(frame);
         Ok(())
     }
 }
 
-// Defines a processing task
-#[derive(Reflect)]
-pub struct MyTask {
-    // if you add some task state here, you need to implement the Freezable trait
-}
-
-// Needs to be fully implemented if you want to have a stateful task.
-impl Freezable for MyTask {}
-
-impl CuTask for MyTask {
-    type Resources<'r> = ();
-    type Input<'m> = input_msg!(MyPayload);
-    type Output<'m> = output_msg!(MyPayload);
-
-    fn new(_config: Option<&ComponentConfig>, _resources: Self::Resources<'_>) -> CuResult<Self>
-    where
-        Self: Sized,
-    {
-        // add the task state initialization here
-        Ok(Self {})
-    }
-
-    // don't forget the other lifecycle methods if you need them: start, stop, preprocess, postprocess
-
-    fn process(
-        &mut self,
-        _clock: &RobotClock,
-        input: &Self::Input<'_>,
-        output: &mut Self::Output<'_>,
-    ) -> CuResult<()> {
-        debug!("Received message: {}", input.payload().unwrap().value);
-        output.set_payload(MyPayload { value: 43 });
-        Ok(()) // outputs another message for downstream
-    }
-}
-
-// Defines a sink (ie. actualtion)
 #[derive(Default, Reflect)]
-pub struct MySink {}
+pub struct CatDetector {}
 
-// Needs to be fully implemented if you want to have a stateful task.
-impl Freezable for MySink {}
+impl Freezable for CatDetector {}
 
-impl CuSinkTask for MySink {
+impl CuTask for CatDetector {
     type Resources<'r> = ();
-    type Input<'m> = input_msg!(MyPayload);
+    type Input<'m> = input_msg!(CameraFrame);
+    type Output<'m> = output_msg!(CatDetection);
+
+    fn new(_config: Option<&ComponentConfig>, _resources: Self::Resources<'_>) -> CuResult<Self>
+    {
+        Ok(Self {})
+    }
+
+    fn process(&mut self, _clock: &RobotClock, _input: &Self::Input<'_>, output: &mut Self::Output<'_>) -> CuResult<()> {
+        // Placeholder — just say we found a cat in the center with 0.5 confidence
+        output.set_payload(CatDetection {
+            found: true,
+            confidence: 0.5,
+            center_x: 160,
+            center_y: 160,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Default, Reflect)]
+pub struct ServoSink {}
+
+impl Freezable for ServoSink {}
+
+impl CuSinkTask for ServoSink {
+    type Resources<'r> = ();
+    type Input<'m> = input_msg!(CatDetection);
 
     fn new(_config: Option<&ComponentConfig>, _resources: Self::Resources<'_>) -> CuResult<Self>
     where
@@ -88,10 +105,10 @@ impl CuSinkTask for MySink {
     {
         Ok(Self {})
     }
-    // don't forget the other lifecycle methods if you need them: start, stop, preprocess, postprocess
 
     fn process(&mut self, _clock: &RobotClock, input: &Self::Input<'_>) -> CuResult<()> {
-        debug!("Sink Received message: {}", input.payload().unwrap().value);
+        // Placeholder — just print out the cat detection
+        println!("Cat detection: {:?}", input.payload());
         Ok(())
     }
 }

@@ -1,28 +1,29 @@
 (
     tasks: [
         (
-            id: "src",
-            type: "tasks::MySource",
+            id: "camera-source",
+            type: "tasks::CameraSource",
+            config: { "device": "/dev/video0", "width": 320, "height": 320 }
         ),
         (
-            id: "t-0",
-            type: "tasks::MyTask",
+            id: "cat-detector",
+            type: "tasks::CatDetector"
         ),
         (
-            id: "sink",
-            type: "tasks::MySink",
-        ),
+            id: "servo-sink",
+            type: "tasks::ServoSink"
+        )
     ],
     cnx: [
         (
-            src: "src",
-            dst: "t-0",
-            msg: "crate::tasks::MyPayload",
+            src: "camera-source",
+            dst: "cat-detector",
+            msg: "crate::tasks::CameraFrame"
         ),
         (
-            src: "t-0",
-            dst: "sink",
-            msg: "crate::tasks::MyPayload",
-        ),
+            src: "cat-detector",
+            dst: "servo-sink",
+            msg: "crate::tasks::CatDetection"
+        )
     ],
 )
