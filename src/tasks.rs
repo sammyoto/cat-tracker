@@ -3,6 +3,14 @@ use cu29::prelude::*;
 use serde::{Deserialize, Serialize};
 use cu29::payload::CuArray;
 
+// video 4 linux imports
+use v4l::buffer::Type;
+use v4l::io::mmap::Stream;
+use v4l::io::traits::CaptureStream;
+use v4l::video::Capture;
+use v4l::Device;
+use v4l::FourCC;
+
 // 320 * 320 * 3 = 307200 bytes for RGB24
 pub const FRAME_SIZE: usize = 320 * 320 * 3;
 
@@ -33,7 +41,10 @@ pub struct CatDetection {
 
 // Defines a source (ie. driver)
 #[derive(Default, Reflect)]
-pub struct CameraSource {}
+pub struct CameraSource {
+    #[reflect(ignore)]
+    pub stream: Option<v4l::io::mmap::Stream<'static>>,
+}
 
 // Needs to be fully implemented if you want to have a stateful task.
 impl Freezable for CameraSource {}
@@ -46,17 +57,37 @@ impl CuSrcTask for CameraSource {
     where
         Self: Sized,
     {
-        Ok(Self {})
+        // Create a new capture device with a few extra parameters
+        let mut dev = Device::new(0).expect("Failed to open device");
+
+        // Let's say we want to explicitly request another format
+        let mut fmt = dev.format().expect("Failed to read format");
+        fmt.width = 320;
+        fmt.height = 320;
+        fmt.fourcc = FourCC::new(b"RGB3");
+        let fmt = dev.set_format(&fmt).map_err(|_| CuError::from("Camera doesn't support RGB24"))?;
+
+        let stream = Stream::with_buffers(&mut dev, Type::VideoCapture, 4)
+        .expect("Failed to create buffer stream");
+
+        let fmt = dev.format().unwrap();
+        println!("Camera is actually using: {} at {}x{}", fmt.fourcc, fmt.width, fmt.height);
+
+        Ok(Self { stream: Some(stream) })
     }
 
     fn process(&mut self, _clock: &RobotClock, output: &mut Self::Output<'_>) -> CuResult<()> {
+        let (data, _meta) = self.stream.as_mut().unwrap().next().map_err(|_| CuError::from("Camera timeout"))?;
+
         let mut frame = CameraFrame {
-        data: CuArray::new(),
-        width: 320,
-        height: 320,
+            data: CuArray::new(),
+            width: 320,
+            height: 320,
         };
-        // fill with placeholder data — real camera bytes go here later
-        frame.data.fill_from_iter(std::iter::repeat(0u8).take(FRAME_SIZE));
+
+        // fill with data
+        frame.data.fill_from_iter(data[..FRAME_SIZE].iter().copied());
+
         output.set_payload(frame);
         Ok(())
     }

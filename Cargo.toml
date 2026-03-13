@@ -28,3 +28,4 @@ bincode = { package = "cu-bincode", version = "2.0", default-features = false, f
 serde = { version = "*", features = ["derive"] }
 cu29-helpers = "0.13"
 cu29-export = { version = "0.13" , optional = true }
+v4l = "0.14.0"
