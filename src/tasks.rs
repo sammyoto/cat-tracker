@@ -171,7 +171,7 @@ impl CuTask for CatDetector {
                 let x = view[[col, 0, 0]];
                 let y = view[[col, 1, 0]];
                 
-                // Adjust for the 40-pixel vertical letterbox we added earlier!
+                // Adjust for the 40-pixel vertical letterbox we added
                 cat_coords = (x, y - 40.0); 
             }
         }
