@@ -16,6 +16,9 @@ use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Value;
 use ndarray::{Array, Axis, s};
 
+// raspberry pi imports
+use rppal::gpio::{Gpio, OutputPin, Pin};
+
 // 640 * 480 * 2 = 614400  bytes for YUYV
 pub const FRAME_SIZE: usize = 640 * 480 * 2;
 
@@ -189,7 +192,9 @@ impl CuTask for CatDetector {
 }
 
 #[derive(Default, Reflect)]
-pub struct ServoSink {}
+pub struct ServoSink {
+    pub light_pin: Option<OutputPin>,
+}
 
 impl Freezable for ServoSink {}
 
@@ -201,12 +206,19 @@ impl CuSinkTask for ServoSink {
     where
         Self: Sized,
     {
-        Ok(Self {})
+        let gpio = Gpio::new().expect("Failed to access GPIO");
+        let light_pin = gpio.get(17).expect("Failed to get GPIO pin 17").into_output();
+        Ok(Self { light_pin: Some(light_pin) })
     }
 
     fn process(&mut self, _clock: &RobotClock, input: &Self::Input<'_>) -> CuResult<()> {
         // Placeholder — just print out the cat detection
         println!("Cat detection: {:?}", input.payload());
+
+        if input.payload().unwrap().found {
+            self.light_pin.as_mut().unwrap().set_high();
+        }
+
         Ok(())
     }
 }
