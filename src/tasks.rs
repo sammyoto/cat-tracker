@@ -145,10 +145,45 @@ impl CuTask for CatDetector {
         // 4. Run inference
         let outputs = session.run(ort::inputs!["images" => input]).unwrap();
         let parsed_outputs = outputs["output0"].try_extract_array::<f32>().unwrap().t().into_owned();
-        println!("ONNX output: {:?}", parsed_outputs);
-        // output.set_payload(detection);
 
-        // NEXT PARSE OUTPUT AND FIGURE OUT IF CAT IS DETECTED, THEN FILL OUT PAYLOAD
+        let view = parsed_outputs.view();
+
+        let mut best_cat_score = 0.5; // Only care about cats with > 50% confidence
+        let mut cat_coords = (0.0, 0.0); // (x, y)
+        let mut found_cat = false;
+
+        const CAT_CLASS_INDEX: usize = 15; // COCO index for cat
+
+        // 2. Iterate through the 2100 candidates
+        for col in 0..2100 {
+            let score = view[[col, 4 + CAT_CLASS_INDEX, 0]];
+            
+            if score > best_cat_score {
+                best_cat_score = score;
+                found_cat = true;
+                
+                // These coordinates are in the 320x320 space
+                let x = view[[col, 0, 0]];
+                let y = view[[col, 1, 0]];
+                
+                // Adjust for the 40-pixel vertical letterbox we added earlier!
+                cat_coords = (x, y - 40.0); 
+            }
+        }
+
+        // 3. Update your CatDetection payload
+        let mut detection = CatDetection::default();
+
+        if found_cat {
+            detection.found = true;
+            detection.confidence = best_cat_score;
+            detection.center_x = cat_coords.0 as u32;
+            detection.center_y = cat_coords.1 as u32;
+            println!("Cat found! x: {}, y: {} (Conf: {:.2})", detection.center_x, detection.center_y, best_cat_score);
+        }
+
+        output.set_payload(detection);
+
         Ok(())
     }
 }
