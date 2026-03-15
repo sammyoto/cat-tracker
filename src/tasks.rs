@@ -217,6 +217,8 @@ impl CuSinkTask for ServoSink {
 
         if input.payload().unwrap().found {
             self.light_pin.as_mut().unwrap().set_high();
+        } else {
+            self.light_pin.as_mut().unwrap().set_low();
         }
 
         Ok(())
