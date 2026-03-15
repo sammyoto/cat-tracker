@@ -226,9 +226,11 @@ impl CuSinkTask for ServoSink {
     }
 }
 
+// Needed as camera could only support 640x480 resolution.
+// Scales down image and pads the bottom as height gets reduced to 240 but we need 320
 fn process_to_320_tensor(yuyv_640: &[u8]) -> Vec<f32> {
-    const IN_W: usize = 320;
-    const IN_H: usize = 240;
+    const IN_W: usize = 640;
+    const IN_H: usize = 480;
     const OUT_SIZE: usize = 320;
     
     // Create a buffer for 320x320x3 (Planar: RRR...GGG...BBB...)
