@@ -3,7 +3,7 @@
         (
             id: "camera-source",
             type: "tasks::CameraSource",
-            config: { "device": "/dev/video1", "width": 640, "height": 480 }
+            config: { "device": "/dev/video0", "width": 640, "height": 480 }
         ),
         (
             id: "cat-detector",
