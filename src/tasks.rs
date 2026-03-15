@@ -69,7 +69,7 @@ impl CuSrcTask for CameraSource {
         // Create a new capture device with a few extra parameters
         let mut dev = Device::new(0).expect("Failed to open device");
 
-        // Let's say we want to explicitly request another format
+        // Set format
         let mut fmt = dev.format().expect("Failed to read format");
         fmt.width = FRAME_WIDTH as u32;
         fmt.height = FRAME_HEIGHT as u32;
