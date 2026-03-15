@@ -14,13 +14,14 @@ use v4l::FourCC;
 // onnx runtime imports
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Value;
-use ndarray::{Array, Axis, s};
 
 // raspberry pi imports
-use rppal::gpio::{Gpio, OutputPin, Pin};
+use rppal::gpio::{Gpio, OutputPin};
 
 // 640 * 480 * 2 = 614400  bytes for YUYV
-pub const FRAME_SIZE: usize = 640 * 480 * 2;
+pub const FRAME_WIDTH: usize = 640;
+pub const FRAME_HEIGHT: usize = 480;
+pub const FRAME_SIZE: usize = FRAME_WIDTH * FRAME_HEIGHT * 2;
 
 #[derive(Default, Debug, Clone, Encode, Serialize, Deserialize, Reflect)]
 pub struct CameraFrame {
@@ -70,8 +71,8 @@ impl CuSrcTask for CameraSource {
 
         // Let's say we want to explicitly request another format
         let mut fmt = dev.format().expect("Failed to read format");
-        fmt.width = 640;
-        fmt.height = 480;
+        fmt.width = FRAME_WIDTH as u32;
+        fmt.height = FRAME_HEIGHT as u32;
         fmt.fourcc = FourCC::new(b"YUYV");
         let fmt = dev.set_format(&fmt).map_err(|_| CuError::from("Camera doesn't support YUYV"))?;
 
@@ -89,8 +90,8 @@ impl CuSrcTask for CameraSource {
 
         let mut frame = CameraFrame {
             data: CuArray::new(),
-            width: 640,
-            height: 480,
+            width: FRAME_WIDTH as u32,
+            height: FRAME_HEIGHT as u32,
         };
 
         frame.data.fill_from_iter(data[..FRAME_SIZE].iter().copied());
@@ -134,6 +135,7 @@ impl CuTask for CatDetector {
     }
 
     fn process(&mut self, _clock: &RobotClock, _input: &Self::Input<'_>, output: &mut Self::Output<'_>) -> CuResult<()> {
+        // 1. Get Raw data and process into 320 tensor
         let raw_data: &[u8] = _input.payload().unwrap().data.as_slice();
         let processed_data = process_to_320_tensor(raw_data);
 
@@ -157,7 +159,7 @@ impl CuTask for CatDetector {
 
         const CAT_CLASS_INDEX: usize = 15; // COCO index for cat
 
-        // 2. Iterate through the 2100 candidates
+        // 5. Iterate through the 2100 candidates
         for col in 0..2100 {
             let score = view[[col, 4 + CAT_CLASS_INDEX, 0]];
             
@@ -174,7 +176,7 @@ impl CuTask for CatDetector {
             }
         }
 
-        // 3. Update your CatDetection payload
+        // 6. Update CatDetection payload
         let mut detection = CatDetection::default();
 
         if found_cat {
@@ -212,7 +214,6 @@ impl CuSinkTask for ServoSink {
     }
 
     fn process(&mut self, _clock: &RobotClock, input: &Self::Input<'_>) -> CuResult<()> {
-        // Placeholder — just print out the cat detection
         println!("Cat detection: {:?}", input.payload());
 
         if input.payload().unwrap().found {
@@ -226,8 +227,8 @@ impl CuSinkTask for ServoSink {
 }
 
 fn process_to_320_tensor(yuyv_640: &[u8]) -> Vec<f32> {
-    const IN_W: usize = 640;
-    const IN_H: usize = 480;
+    const IN_W: usize = 320;
+    const IN_H: usize = 240;
     const OUT_SIZE: usize = 320;
     
     // Create a buffer for 320x320x3 (Planar: RRR...GGG...BBB...)
