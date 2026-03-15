@@ -64,7 +64,7 @@ impl CuSrcTask for CameraSource {
         let mut fmt = dev.format().expect("Failed to read format");
         fmt.width = 640;
         fmt.height = 480;
-        fmt.fourcc = FourCC::new(b"RGB3");
+        fmt.fourcc = FourCC::new(b"YUYV");
         let fmt = dev.set_format(&fmt).map_err(|_| CuError::from("Camera doesn't support RGB24"))?;
 
         let stream = Stream::with_buffers(&mut dev, Type::VideoCapture, 4)
