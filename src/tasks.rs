@@ -11,8 +11,8 @@ use v4l::video::Capture;
 use v4l::Device;
 use v4l::FourCC;
 
-// 320 * 320 * 3 = 307200 bytes for RGB24
-pub const FRAME_SIZE: usize = 320 * 320 * 3;
+// 640 * 480 * 3 = 921600 bytes for RGB24
+pub const FRAME_SIZE: usize = 640 * 480 * 3;
 
 #[derive(Default, Debug, Clone, Encode, Serialize, Deserialize, Reflect)]
 pub struct CameraFrame {
@@ -62,8 +62,8 @@ impl CuSrcTask for CameraSource {
 
         // Let's say we want to explicitly request another format
         let mut fmt = dev.format().expect("Failed to read format");
-        fmt.width = 320;
-        fmt.height = 320;
+        fmt.width = 640;
+        fmt.height = 480;
         fmt.fourcc = FourCC::new(b"RGB3");
         let fmt = dev.set_format(&fmt).map_err(|_| CuError::from("Camera doesn't support RGB24"))?;
 
@@ -81,8 +81,8 @@ impl CuSrcTask for CameraSource {
 
         let mut frame = CameraFrame {
             data: CuArray::new(),
-            width: 320,
-            height: 320,
+            width: 640,
+            height: 480,
         };
 
         // fill with data
